@@ -22,24 +22,24 @@ subprojects {
 }
 
 subprojects {
-    afterEvaluate {
-        if (name == "flutter_vpn") {
-            extensions.findByType<LibraryExtension>()?.apply {
-                val manifestPackage = runCatching {
-                    val manifestFile = sourceSets.getByName("main").manifest.srcFile
-                    if (manifestFile.exists()) {
-                        val content = manifestFile.readText()
-                        val regex = Regex("package\\s*=\\s*\"([^\"]+)\"")
-                        regex.find(content)?.groupValues?.getOrNull(1)
-                    } else {
-                        null
-                    }
-                }.getOrNull()
+	if (name == "flutter_vpn") {
+		plugins.withId("com.android.library") {
+			extensions.configure(LibraryExtension::class.java) {
+				val manifestPackage = runCatching {
+					val manifestFile = sourceSets.getByName("main").manifest.srcFile
+					if (manifestFile.exists()) {
+						val content = manifestFile.readText()
+						val regex = Regex("package\\s*=\\s*\"([^\"]+)\"")
+						regex.find(content)?.groupValues?.getOrNull(1)
+					} else {
+						null
+					}
+				}.getOrNull()
 
-                namespace = manifestPackage ?: "com.github.flutter_vpn"
-            }
-        }
-    }
+				namespace = manifestPackage ?: "com.github.flutter_vpn"
+			}
+		}
+	}
 }
 
 tasks.register<Delete>("clean") {

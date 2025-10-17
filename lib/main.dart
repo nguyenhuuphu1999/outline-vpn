@@ -340,7 +340,15 @@ class OutlineVpnController extends ChangeNotifier {
     _setError(null);
     try {
       await FlutterVpn.prepare();
-      await FlutterVpn.simpleConnect(_config!.accessUrl);
+      final String accessUrl = _config!.accessUrl;
+      if (accessUrl.startsWith('ss://')) {
+        throw PlatformException(
+          code: 'UNSUPPORTED',
+          message:
+              'Kết nối Outline/Shadowsocks chưa được hỗ trợ bởi flutter_vpn hiện tại. Vui lòng dùng plugin tương thích Outline hoặc cung cấp cấu hình IKEv2/IPSec.',
+        );
+      }
+      // If later supporting IKEv2/IPSec, call corresponding FlutterVpn.connect* here.
     } on PlatformException catch (error) {
       _setError(error.message ?? error.code);
     } catch (error) {
