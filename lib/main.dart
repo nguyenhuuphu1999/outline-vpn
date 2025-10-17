@@ -1,122 +1,508 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_vpn/flutter_vpn.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
-  runApp(const MyApp());
+  runApp(const OutlineVpnApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class OutlineVpnApp extends StatelessWidget {
+  const OutlineVpnApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Outline VPN Connector',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueGrey),
+        useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const OutlineHomePage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class OutlineHomePage extends StatefulWidget {
+  const OutlineHomePage({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<OutlineHomePage> createState() => _OutlineHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _OutlineHomePageState extends State<OutlineHomePage> {
+  late final OutlineVpnController _controller;
+  final TextEditingController _keyController = TextEditingController();
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  @override
+  void initState() {
+    super.initState();
+    _controller = OutlineVpnController();
+  }
+
+  @override
+  void dispose() {
+    _keyController.dispose();
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Outline VPN Connector'),
+          ),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _OutlineKeyInputCard(
+                    controller: _controller,
+                    keyController: _keyController,
+                  ),
+                  const SizedBox(height: 16),
+                  _ConnectionStatusTile(controller: _controller),
+                  const SizedBox(height: 16),
+                  if (_controller.errorMessage != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        _controller.errorMessage!,
+                        style: const TextStyle(color: Colors.redAccent),
+                      ),
+                    ),
+                  if (_controller.config != null)
+                    _ServerDetailsCard(config: _controller.config!),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _OutlineKeyInputCard extends StatelessWidget {
+  const _OutlineKeyInputCard({
+    required this.controller,
+    required this.keyController,
+  });
+
+  final OutlineVpnController controller;
+  final TextEditingController keyController;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: keyController,
+              decoration: const InputDecoration(
+                labelText: 'Outline access key',
+                hintText: 'Nhập hoặc dán đường dẫn ssconf://...',
+              ),
+              minLines: 1,
+              maxLines: 3,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: controller.isLoading
+                        ? null
+                        : () => controller.loadKey(keyController.text),
+                    icon: controller.isLoading
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.download),
+                    label: const Text('Tải cấu hình'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: controller.canConnect ? controller.connect : null,
+                    icon: const Icon(Icons.vpn_key),
+                    label: const Text('Kết nối'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: controller.canDisconnect ? controller.disconnect : null,
+              icon: const Icon(Icons.link_off),
+              label: const Text('Ngắt kết nối'),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
+}
+
+class _ConnectionStatusTile extends StatelessWidget {
+  const _ConnectionStatusTile({required this.controller});
+
+  final OutlineVpnController controller;
+
+  Color _statusColor() {
+    switch (controller.vpnStateLabel) {
+      case 'connected':
+        return Colors.green;
+      case 'connecting':
+      case 'preparing':
+        return Colors.orange;
+      case 'disconnecting':
+        return Colors.blueGrey;
+      case 'failed':
+        return Colors.redAccent;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        leading: Icon(Icons.shield, color: _statusColor()),
+        title: const Text('Trạng thái VPN'),
+        subtitle: Text(controller.vpnStateLabel),
+        trailing: controller.lastLatency == null
+            ? null
+            : Text('${controller.lastLatency!.inMilliseconds} ms'),
+      ),
+    );
+  }
+}
+
+class _ServerDetailsCard extends StatelessWidget {
+  const _ServerDetailsCard({required this.config});
+
+  final OutlineServerConfig config;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              config.displayName,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 12),
+            _InfoRow(label: 'Máy chủ', value: config.serverHost),
+            _InfoRow(label: 'Cổng', value: config.serverPort.toString()),
+            _InfoRow(label: 'Mã hóa', value: config.method),
+            if (config.accessKey != null)
+              SelectableText(
+                'Access key: ${config.accessKey}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            if (config.certSha256 != null)
+              _InfoRow(label: 'Chứng chỉ', value: config.certSha256!),
+            const Divider(height: 24),
+            SelectableText(
+              config.accessUrl,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: Colors.blueGrey.shade700),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ),
+          Expanded(
+            child: SelectableText(
+              value,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class OutlineVpnController extends ChangeNotifier {
+  OutlineVpnController({http.Client? client})
+      : _httpClient = client ?? http.Client() {
+    _parser = OutlineKeyParser(_httpClient);
+    _subscription = FlutterVpn.onStateChanged.listen(_handleStateChange);
+    FlutterVpn.currentState.then(_handleStateChange);
+  }
+
+  late final OutlineKeyParser _parser;
+  final http.Client _httpClient;
+  OutlineServerConfig? _config;
+  String? _errorMessage;
+  bool _isLoading = false;
+  dynamic _vpnState = 'disconnected';
+  StreamSubscription<dynamic>? _subscription;
+  Duration? _lastLatency;
+
+  OutlineServerConfig? get config => _config;
+  String? get errorMessage => _errorMessage;
+  bool get isLoading => _isLoading;
+  String get vpnStateLabel => _vpnState?.toString().split('.').last ?? 'unknown';
+  bool get canConnect =>
+      _config != null &&
+      !_isLoading &&
+      !_vpnStateLabelIn(['connecting', 'preparing', 'connected']);
+  bool get canDisconnect => _vpnStateLabelIn([
+        'connected',
+        'connecting',
+        'preparing',
+        'disconnecting',
+      ]);
+
+  Duration? get lastLatency => _lastLatency;
+
+  Future<void> loadKey(String rawKey) async {
+    _setLoading(true);
+    _setError(null);
+    try {
+      final stopwatch = Stopwatch()..start();
+      final config = await _parser.parse(rawKey);
+      stopwatch.stop();
+      _lastLatency = stopwatch.elapsed;
+      _config = config;
+    } on FormatException catch (error) {
+      _setError(error.message);
+      _config = null;
+    } on http.ClientException catch (error) {
+      _setError('Không thể tải cấu hình: ${error.message}');
+      _config = null;
+    } on PlatformException catch (error) {
+      _setError(error.message ?? error.code);
+      _config = null;
+    } catch (error) {
+      _setError('Đã xảy ra lỗi: $error');
+      _config = null;
+    } finally {
+      _setLoading(false);
+    }
+    notifyListeners();
+  }
+
+  Future<void> connect() async {
+    if (_config == null) {
+      _setError('Chưa có cấu hình máy chủ.');
+      return;
+    }
+    _setError(null);
+    try {
+      await FlutterVpn.prepare();
+      await FlutterVpn.simpleConnect(_config!.accessUrl);
+    } on PlatformException catch (error) {
+      _setError(error.message ?? error.code);
+    } catch (error) {
+      _setError('Không thể kết nối: $error');
+    }
+    notifyListeners();
+  }
+
+  Future<void> disconnect() async {
+    try {
+      await FlutterVpn.disconnect();
+    } on PlatformException catch (error) {
+      _setError(error.message ?? error.code);
+    } catch (error) {
+      _setError('Không thể ngắt kết nối: $error');
+    }
+    notifyListeners();
+  }
+
+  void _handleStateChange(dynamic state) {
+    _vpnState = state;
+    notifyListeners();
+  }
+
+  void _setError(String? message) {
+    _errorMessage = message;
+    notifyListeners();
+  }
+
+  void _setLoading(bool value) {
+    _isLoading = value;
+    notifyListeners();
+  }
+
+  bool _vpnStateLabelIn(List<String> states) {
+    final label = vpnStateLabel;
+    return states.contains(label);
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    _httpClient.close();
+    super.dispose();
+  }
+}
+
+class OutlineServerConfig {
+  OutlineServerConfig({
+    required this.serverHost,
+    required this.serverPort,
+    required this.method,
+    required this.password,
+    required this.name,
+    required this.accessUrl,
+    this.accessKey,
+    this.certSha256,
+    this.rawJson,
+  });
+
+  final String serverHost;
+  final int serverPort;
+  final String method;
+  final String password;
+  final String name;
+  final String accessUrl;
+  final String? accessKey;
+  final String? certSha256;
+  final Map<String, dynamic>? rawJson;
+
+  String get displayName => name.isEmpty ? '$serverHost:$serverPort' : name;
+
+  Map<String, dynamic> toJson() => {
+        'serverHost': serverHost,
+        'serverPort': serverPort,
+        'method': method,
+        'password': password,
+        'name': name,
+        'accessUrl': accessUrl,
+        if (accessKey != null) 'accessKey': accessKey,
+        if (certSha256 != null) 'certSha256': certSha256,
+      };
+}
+
+class OutlineKeyParser {
+  OutlineKeyParser(this._client);
+
+  final http.Client _client;
+
+  Future<OutlineServerConfig> parse(String rawKey) async {
+    if (rawKey.trim().isEmpty) {
+      throw const FormatException('Vui lòng nhập access key hợp lệ.');
+    }
+
+    final uri = Uri.tryParse(rawKey.trim());
+    if (uri == null || uri.scheme != 'ssconf') {
+      throw const FormatException('Access key phải bắt đầu bằng ssconf://');
+    }
+
+    final httpsUri = uri.replace(scheme: 'https');
+    final response = await _client.get(httpsUri);
+    if (response.statusCode != 200) {
+      throw FormatException(
+        'Máy chủ trả về mã lỗi ${response.statusCode}.',
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Tệp cấu hình không hợp lệ.');
+    }
+
+    return _parseServerConfig(decoded, uri.fragment.isEmpty ? null : uri.fragment);
+  }
+
+  OutlineServerConfig _parseServerConfig(
+    Map<String, dynamic> json,
+    String? fragment,
+  ) {
+    String? serverHost = json['host'] as String? ?? json['server'] as String?;
+    final int? port =
+        (json['server_port'] as num?)?.toInt() ?? (json['port'] as num?)?.toInt();
+    final String? method = json['method'] as String?;
+    final String? password = json['password'] as String? ?? json['secret'] as String?;
+    final String? name = fragment ?? json['name'] as String?;
+    final String? accessKey = json['access_key'] as String? ?? json['accessKey'] as String?;
+    final String? accessUrl =
+        json['accessUrl'] as String? ?? json['access_url'] as String? ?? accessKey;
+    final String? certSha = json['certSha256'] as String? ?? json['cert_sha256'] as String?;
+
+    if (serverHost == null || port == null || method == null || password == null) {
+      throw const FormatException('Thiếu thông tin máy chủ trong tệp cấu hình.');
+    }
+
+    final computedAccessUrl = accessUrl ?? _buildAccessUrl(
+      serverHost: serverHost,
+      port: port,
+      method: method,
+      password: password,
+    );
+
+    return OutlineServerConfig(
+      serverHost: serverHost,
+      serverPort: port,
+      method: method,
+      password: password,
+      name: name ?? '',
+      accessUrl: computedAccessUrl,
+      accessKey: accessKey,
+      certSha256: certSha,
+      rawJson: json,
+    );
+  }
+
+  String _buildAccessUrl({
+    required String serverHost,
+    required int port,
+    required String method,
+    required String password,
+  }) {
+    final credentials = base64Url.encode(utf8.encode('$method:$password')).replaceAll('=', '');
+    return 'ss://$credentials@$serverHost:$port/?outline=1';
+  }
+
 }
